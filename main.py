@@ -24,6 +24,7 @@ class LastFM_RPC:
             return
 
         if now_playing is None:
+            print("Cleaing Discord RPC")
             self._rpc.clear()
             return
 
