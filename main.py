@@ -42,6 +42,7 @@ class LastFM_RPC:
             self._rpc.update(
                 details=str(now_playing.title),
                 state=f"By {now_playing.artist}",
+
                 large_image=cover, # type: ignore
                 large_text=album,  # type: ignore
 
