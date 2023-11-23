@@ -56,7 +56,7 @@ class LastFM_RPC:
                 buttons=[{
                     "label": f"{scrobbles:,} Scrobbles",
                     "url": self._user.get_url()
-                }]
+                }] if SHOW_PROFILE_BUTTON else None # type: ignore
             )
         except pypresence.exceptions.PipeClosed:
             print(f"Discord pipe closed. Attempting reconnection.")
