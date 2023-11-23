@@ -35,13 +35,20 @@ class LastFM_RPC:
         if "album" in now_playing.info and now_playing.info["album"] is not None:
             album = now_playing.info["album"]
 
+        loved = now_playing.get_userloved()
+
         print(f"Updating Discord RPC: {now_playing} | {album}")
         try:
             self._rpc.update(
                 details=str(now_playing.title),
                 state=f"By {now_playing.artist}",
                 large_image=cover,
-                large_text=album
+                large_text=album,
+
+                # Not showing the "loved" icon if there's no cover art because it'll show up
+                # really large, which is kinda ugly
+                small_image="loved" if loved and cover is not None else None,
+                small_text="Loved"
             )
         except pypresence.exceptions.PipeClosed:
             print(f"Discord pipe closed. Attempting reconnection.")
@@ -65,5 +72,4 @@ if __name__ == "__main__":
         time.sleep(UPDATE_TIMEOUT)
 
 # TODOS:
-#  * Show if a track is loved
 #  * Add a button that open user's profile
