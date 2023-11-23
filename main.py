@@ -9,6 +9,7 @@ class LastFM_RPC:
         self._client_id = discord_client_id
         self._username = lastfm_username
         self._api_key = lastfm_api_key
+        self._now_playing = None
 
         self._network = pylast.LastFMNetwork(api_key=self._api_key)
         self._user = self._network.get_user(self._username)
@@ -18,6 +19,9 @@ class LastFM_RPC:
 
     def update(self):
         now_playing = self._user.get_now_playing()
+
+        if self._now_playing == now_playing:
+            return
 
         if now_playing is None:
             self._rpc.clear()
@@ -41,6 +45,8 @@ class LastFM_RPC:
         except pypresence.exceptions.PipeClosed:
             print(f"Discord pipe closed. Attempting reconnection.")
             self._rpc.connect()
+
+        self._now_playing = now_playing
 
 if __name__ == "__main__":
     rpc = LastFM_RPC(
