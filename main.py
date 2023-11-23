@@ -56,3 +56,7 @@ if __name__ == "__main__":
             traceback.print_exc()
 
         time.sleep(UPDATE_TIMEOUT)
+
+# TODOS:
+#  * Show if a track is loved
+#  * Add a button that open user's profile
