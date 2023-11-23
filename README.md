@@ -11,6 +11,8 @@ $ pip install pypresence pylast
 $ python main.py
 ```
 
+Make sure to upload an asset you want displayed as the `loved` icon when using a different Discord Client ID.
+
 # Issues
 
 If you have any issues using the program, feel free to open an issue and let me know what's up, please make sure to provide as much info as you can! \
