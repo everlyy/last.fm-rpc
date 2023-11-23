@@ -35,6 +35,7 @@ class LastFM_RPC:
         if "album" in now_playing.info and now_playing.info["album"] is not None:
             album = now_playing.info["album"]
 
+        print(f"Updating Discord RPC: {now_playing} | {album}")
         try:
             self._rpc.update(
                 details=str(now_playing.title),
