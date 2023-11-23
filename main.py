@@ -31,12 +31,16 @@ class LastFM_RPC:
         if "album" in now_playing.info and now_playing.info["album"] is not None:
             album = now_playing.info["album"]
 
-        self._rpc.update(
-            details=str(now_playing.title),
-            state=f"By {now_playing.artist}",
-            large_image=cover,
-            large_text=album
-        )
+        try:
+            self._rpc.update(
+                details=str(now_playing.title),
+                state=f"By {now_playing.artist}",
+                large_image=cover,
+                large_text=album
+            )
+        except pypresence.exceptions.PipeClosed:
+            print(f"Discord pipe closed. Attempting reconnection.")
+            self._rpc.connect()
 
 if __name__ == "__main__":
     rpc = LastFM_RPC(
