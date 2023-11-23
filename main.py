@@ -37,6 +37,8 @@ class LastFM_RPC:
 
         loved: bool = now_playing.get_userloved() not in (None, False)
 
+        scrobbles: int = int(self._user.get_playcount())
+
         print(f"Updating Discord RPC: {now_playing} | {album}")
         try:
             self._rpc.update(
@@ -49,7 +51,12 @@ class LastFM_RPC:
                 # Not showing the "loved" icon if there's no cover art because it'll show up
                 # really large, which is kinda ugly
                 small_image="loved" if loved and cover is not None else None, # type: ignore
-                small_text="Loved"
+                small_text="Loved",
+
+                buttons=[{
+                    "label": f"{scrobbles:,} Scrobbles",
+                    "url": self._user.get_url()
+                }]
             )
         except pypresence.exceptions.PipeClosed:
             print(f"Discord pipe closed. Attempting reconnection.")
@@ -71,6 +78,3 @@ if __name__ == "__main__":
             traceback.print_exc()
 
         time.sleep(UPDATE_TIMEOUT)
-
-# TODOS:
-#  * Add a button that open user's profile
