@@ -36,7 +36,10 @@ class LastFM_RPC:
         if "album" in now_playing.info and now_playing.info["album"] is not None:
             album = now_playing.info["album"]
 
-        loved: bool = bool(now_playing.get_userloved())
+        loved: bool = False
+        try:
+            loved = bool(now_playing.get_userloved())
+        except: pass
 
         scrobbles: int = int(self._user.get_playcount())
 
