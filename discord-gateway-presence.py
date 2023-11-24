@@ -1,192 +1,58 @@
-from typing import Any
+from config import *
 import asyncio
-import dataclasses
-import json
+import gateway
 import os
-import time
-import websockets
+import pylast
 
-class OpCodes:
-    READY = 0
-    HEARTBEAT = 1
-    IDENTIFY = 2
-    UPDATE_PRESENCE = 3
-    HELLO = 10
+class LastFM_RPC:
+    def __init__(self, discord_client_id: str, lastfm_username: str, lastfm_api_key: str, gateway_interface: gateway.GatewayInterface):
+        self._client_id: str = discord_client_id
+        self._username: str = lastfm_username
+        self._api_key: str = lastfm_api_key
+        self._gateway_interface = gateway_interface
+        self._now_playing: pylast.Track | None = None
 
-@dataclasses.dataclass
-class Packet:
-    t: Any
-    s: Any
-    op: int
-    d: Any
+        self._network: pylast.LastFMNetwork = pylast.LastFMNetwork(api_key=self._api_key)
+        self._user: pylast.User = self._network.get_user(self._username)
 
-@dataclasses.dataclass
-class PacketData:
-    pass
+    async def update(self):
+        now_playing: pylast.Track | None = self._user.get_now_playing()
 
-@dataclasses.dataclass
-class Ready(PacketData):
-    v: Any
-    user_settings_proto: Any
-    user_settings: Any
-    user_guild_settings: Any
-    user: Any
-    tutorial: Any
-    sessions: Any
-    session_type: Any
-    session_id: Any
-    resume_gateway_url: Any
-    relationships: Any
-    read_state: Any
-    private_channels: Any
-    presences: Any
-    notification_settings: Any
-    notes: Any
-    guilds: Any
-    guild_join_requests: Any
-    guild_experiments: Any
-    geo_ordered_rtc_regions: Any
-    friend_suggestion_count: Any
-    experiments: Any
-    current_location: Any
-    country_code: Any
-    consents: Any
-    connected_accounts: Any
-    auth_session_id_hash: Any
-    auth: Any
-    api_code_version: Any
-    analytics_token: Any
-    _trace: Any
+        if self._now_playing == now_playing:
+            return
 
-@dataclasses.dataclass
-class Heartbeat(PacketData):
-    pass
+        if now_playing is None:
+            print("Cleaing Discord RPC")
+            await self._gateway_interface.update_presence(None)
+            return
 
-@dataclasses.dataclass
-class Identify(PacketData):
-    token: str
-    properties: dict[str, str]
-    intents: int
+        album: str | None = None
+        if "album" in now_playing.info and now_playing.info["album"] is not None:
+            album = now_playing.info["album"]
 
-@dataclasses.dataclass
-class UpdatePresence(PacketData):
-    since: int | None
-    activities: list
-    status: str
-    afk: bool
+        print(f"Updating Discord RPC: {now_playing} | {album}")
 
-@dataclasses.dataclass
-class Hello(PacketData):
-    heartbeat_interval: int
-    _trace: list[str]
-
-def parse_packet(data: str) -> (PacketData | None):
-    packet = Packet(**json.loads(data))
-
-    with open("packet.json", "w") as file:
-        json.dump(dataclasses.asdict(packet), file, indent=2)
-        # json.dump(packet.d, file, indent=2)
-
-    if packet.op == OpCodes.HELLO:
-        return Hello(**packet.d)
-
-    if packet.op == OpCodes.READY:
-        return Ready(**packet.d)
-
-    print(f"tried to parse packet with unhandled opcode {packet.op}")
-    print(packet)
-    return None
-
-def create_packet(op: int, d: PacketData) -> str:
-    packet = Packet(
-        t=None,
-        s=None,
-        op=op,
-        d=dataclasses.asdict(d)
-    )
-    return json.dumps(dataclasses.asdict(packet))
-
-def panic(message: str):
-    print(f"PANIC: {message}")
-    os._exit(1)
-
-async def heartbeat(ws, interval):
-    while True:
-        await asyncio.sleep(interval / 1000.0)
-        await ws.send(create_packet(
-            op=OpCodes.HEARTBEAT,
-            d=Heartbeat()
+        await self._gateway_interface.update_presence(gateway.Presence(
+            client_id=self._client_id,
+            details=now_playing.title,
+            state=f"By {now_playing.artist}",
+            assets={
+                "large_text": f"On {album}"
+            }
         ))
+        self._now_playing = now_playing
 
-async def main(discord_token: str):
-    gateway_url = "wss://gateway.discord.gg/?v=10&encoding=json"
-    async with websockets.connect(gateway_url, max_size=64_000_000) as ws:
-        packet = parse_packet(await ws.recv())
+async def on_ready(gw):
+    rpc: LastFM_RPC = LastFM_RPC(
+        discord_client_id=DISCORD_CLIENT_ID,
+        lastfm_username=LASTFM_USERNAME,
+        lastfm_api_key=LASTFM_API_KEY,
+        gateway_interface=gw
+    )
 
-        if isinstance(packet, Hello):
-            print(f"Received HELLO: {packet.heartbeat_interval=}")
-            asyncio.create_task(heartbeat(ws, packet.heartbeat_interval))
-        else:
-            panic("Expected packet with opcode HELLO")
-
-        packet = create_packet(
-            op=OpCodes.IDENTIFY,
-            d=Identify(
-                token=discord_token,
-                properties={
-                    "os": "linux",
-                    "browser": "Everly",
-                    "device": "Everly"
-                },
-                intents=0
-            )
-        )
-
-        await ws.send(packet)
-        packet = parse_packet(await ws.recv())
-
-        if isinstance(packet, Ready):
-            print(f"Received READY")
-            print(f"Logged in as @{packet.user['username']}")
-        else:
-            panic("Expected packet with opcode READY")
-
-        packet = create_packet(
-            op=OpCodes.UPDATE_PRESENCE,
-            d=UpdatePresence(
-                since=int(time.time() * 1000),
-                activities=[
-                    {
-                        "name": "Gateway Test",
-                        "type": 2, # "Listening to {name}"
-                        "application_id": "1023955189599834133",
-                        "details": "song name",
-                        "state": "By artist",
-                        "assets": {
-                            "large_text": "On album"
-                        }
-                    }
-                ],
-                status="online",
-                afk=False
-            )
-        )
-        await ws.send(packet)
-
-        while True:
-            print(await ws.recv())
+    while True:
+        await rpc.update()
+        await asyncio.sleep(UPDATE_TIMEOUT)
 
 if __name__ == "__main__":
-    print("""
-        This is an experimental program, it isn't ready for use yet!
-        ------
-        This version of the RPC is meant to be ran from a different computer so this can run there forever,
-        it will show "Listening to last.fm" on your profile and will also work on mobile/browser.
-    """)
-
-    discord_token = os.environ.get("DISCORD_TOKEN")
-    if discord_token is None:
-        print(f"DISCORD_TOKEN not set in environment")
-        os._exit(1)
-
-    asyncio.run(main(discord_token))
+    gateway.run(os.environ.get("DISCORD_TOKEN"), on_ready)
