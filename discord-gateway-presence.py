@@ -1,14 +1,16 @@
+from typing import Any
 import asyncio
-import websockets
+import dataclasses
 import json
 import os
-import dataclasses
-from typing import Any
+import time
+import websockets
 
 class OpCodes:
     READY = 0
     HEARTBEAT = 1
     IDENTIFY = 2
+    UPDATE_PRESENCE = 3
     HELLO = 10
 
 @dataclasses.dataclass
@@ -65,6 +67,13 @@ class Identify(PacketData):
     token: str
     properties: dict[str, str]
     intents: int
+
+@dataclasses.dataclass
+class UpdatePresence(PacketData):
+    since: int | None
+    activities: list
+    status: str
+    afk: bool
 
 @dataclasses.dataclass
 class Hello(PacketData):
@@ -138,8 +147,31 @@ async def main(discord_token: str):
 
         if isinstance(packet, Ready):
             print(f"Received READY")
+            print(f"Logged in as @{packet.user['username']}")
         else:
             panic("Expected packet with opcode READY")
+
+        packet = create_packet(
+            op=OpCodes.UPDATE_PRESENCE,
+            d=UpdatePresence(
+                since=int(time.time() * 1000),
+                activities=[
+                    {
+                        "name": "Gateway Test",
+                        "type": 2, # "Listening to {name}"
+                        "application_id": "1023955189599834133",
+                        "details": "song name",
+                        "state": "By artist",
+                        "assets": {
+                            "large_text": "On album"
+                        }
+                    }
+                ],
+                status="online",
+                afk=False
+            )
+        )
+        await ws.send(packet)
 
         while True:
             print(await ws.recv())
